@@ -1,17 +1,16 @@
 package io.zw.auth.api.services;
 
+import com.google.gson.Gson;
+import io.smallrye.jwt.auth.principal.JWTParser;
+import io.smallrye.jwt.auth.principal.ParseException;
 import io.zw.auth.api.constants.ApiErrorConstants;
 import io.zw.auth.api.constants.Constants;
 import io.zw.auth.api.constants.RedisConstants;
-import io.zw.auth.api.dto.AuthRenewRequestDTO;
-import io.zw.auth.api.dto.AuthRequestDTO;
-import io.zw.auth.api.dto.AuthResponseDTO;
-import io.zw.auth.api.dto.ResponseDTO;
+import io.zw.auth.api.dto.*;
+import io.zw.auth.api.logs.EventLogger;
 import io.zw.auth.api.models.UserModel;
 import io.zw.auth.api.repositories.UserRepository;
 import io.zw.auth.api.utils.JwtUtils;
-import io.smallrye.jwt.auth.principal.JWTParser;
-import io.smallrye.jwt.auth.principal.ParseException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -20,8 +19,6 @@ import org.jboss.resteasy.reactive.RestResponse;
 import org.joda.time.DateTime;
 
 import java.time.Duration;
-
-import static io.zw.auth.api.constants.RedisConstants.USER_INFO;
 
 @ApplicationScoped
 public class AuthService {
@@ -36,6 +33,8 @@ public class AuthService {
     JWTParser parser;
 
     JwtUtils jwtUtils;
+
+    Gson gson = new Gson();
 
     @Transactional
     public ResponseDTO register(AuthRequestDTO request) {
@@ -58,8 +57,8 @@ public class AuthService {
         AuthResponseDTO auth = new AuthResponseDTO(accessToken, refreshToken, accessTokenExpires, refreshTokenExpires);
         response.setData(auth);
         response.setStatus(RestResponse.Status.OK.getStatusCode());
-        String key = USER_INFO + user.getUserId();
-        redisService.saveWithoutExpiredTime(key, user);
+        String key = RedisConstants.REFRESH_TOKEN + user.getUserId();
+        redisService.saveWithExpiredTime(key, refreshToken, Duration.ofSeconds(Constants.JwtTokenEnum.REFRESH_TOKEN_EXPIRED.getValue()));
         return response;
     }
 
@@ -128,6 +127,7 @@ public class AuthService {
             response.setData(auth);
             response.setStatus(RestResponse.Status.OK.getStatusCode());
             redisService.saveWithExpiredTime(key, refreshToken, Duration.ofSeconds(Constants.JwtTokenEnum.REFRESH_TOKEN_EXPIRED.getValue()));
+            EventLogger.writeToLog(new LogEvent(user.getUserId(), Constants.EventLoggerEnum.REGISTER_EVENT.getValue(), gson.toJson(user), ""));
             return response;
         } catch (ParseException ex) {
             response.setData(null);
@@ -136,5 +136,15 @@ public class AuthService {
             response.setMessage(ApiErrorConstants.FAILED_TO_VERIFY_TOKEN.getMessage());
             return response;
         }
+    }
+
+    @Transactional
+    public ResponseDTO logOut(String userId) {
+        ResponseDTO response = new ResponseDTO();
+        String key = RedisConstants.REFRESH_TOKEN + userId;
+        redisService.delete(key);
+        response.setData(null);
+        response.setStatus(RestResponse.Status.OK.getStatusCode());
+        return response;
     }
 }

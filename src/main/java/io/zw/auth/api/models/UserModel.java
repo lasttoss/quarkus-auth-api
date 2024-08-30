@@ -31,7 +31,7 @@ public class UserModel {
     @Column(name = "social_id", nullable = false, columnDefinition = "varchar(255)")
     private String socialId;
 
-    @Column(name = "social_type", nullable = false, columnDefinition = "int8")
+    @Column(name = "social_type", nullable = false, columnDefinition = "int2")
     private int type;
 
     @Column(name = "display_name", nullable = false, columnDefinition = "varchar(255)")

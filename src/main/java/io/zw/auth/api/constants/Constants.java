@@ -25,4 +25,14 @@ public class Constants {
             this.value = value;
         }
     }
+
+    @Getter
+    public enum EventLoggerEnum {
+        REGISTER_EVENT("REGISTER_EVENT");
+
+        private String value;
+        EventLoggerEnum(String value) {
+            this.value = value;
+        }
+    }
 }

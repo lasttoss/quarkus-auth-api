@@ -32,4 +32,11 @@ public class RedisService {
         RBucket<Object> bucket = redissonClient.getBucket(key);
         return bucket.get();
     }
+
+    public void delete(String key) {
+        RBucket<Object> bucket = redissonClient.getBucket(key);
+        if (bucket.isExists()) {
+            bucket.delete();
+        }
+    }
 }
