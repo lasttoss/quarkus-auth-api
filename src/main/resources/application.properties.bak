@@ -28,7 +28,7 @@ quarkus.redisson.netty-threads=32
 
 ## docker
 quarkus.container-image.build=true  
-quarkus.container-image.group=io.zw
+quarkus.container-image.group=zw
 quarkus.container-image.name=auth
 quarkus.container-image.tag=latest
 quarkus.jib.ports=8080
