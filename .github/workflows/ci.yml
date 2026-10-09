@@ -3,7 +3,9 @@ name: ci
 on:
   push:
     branches: [master, main]
+    tags: ['v*']
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -22,3 +24,46 @@ jobs:
         run: ./mvnw -B -DskipTests package
       - name: Tests
         run: ./mvnw -B test
+
+
+  image:
+    # Only a push publishes; a pull request from a fork cannot write to the registry. The image is
+    # built by Jib, which speaks the registry API directly and needs no Docker daemon at all.
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Development JWT keys
+        run: ./scripts/gen-dev-keys.sh certs
+      - name: Work out the tag
+        id: version
+        # A tag is the version; on a branch the image is named after the commit, so nothing is ever
+        # published as "latest" by accident and every image says where it came from.
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=0.0.0-$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and push the image
+        run: |
+          ./mvnw -B -DskipTests package \
+            -Dquarkus.container-image.build=true \
+            -Dquarkus.container-image.push=true \
+            -Dquarkus.container-image.registry=ghcr.io \
+            -Dquarkus.container-image.group=${{ github.repository_owner }} \
+            -Dquarkus.container-image.name=quarkus-auth-api \
+            -Dquarkus.container-image.username=${{ github.actor }} \
+            -Dquarkus.container-image.password=${{ secrets.GITHUB_TOKEN }} \
+            -Dquarkus.container-image.tag=${{ steps.version.outputs.value }} \
+            -Dquarkus.container-image.additional-tags=latest
