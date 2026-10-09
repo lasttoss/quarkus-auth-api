@@ -165,7 +165,10 @@ By package, the number says where the suite looks:
 | `services` | 0.0% (118 lines) |
 | `repositories` | 0.0% (14 lines) |
 
-Models and mappers are fully or nearly covered; the service layer and the storage access are not, and for the same
-reason as in the other service: the tests that need PostgreSQL and Redis are the ones tagged `integration`, and CI
-runs only the unit suite. The jacoco plugin is committed so the number can be reproduced rather than taken on
-trust.
+Models and mappers are fully or nearly covered; the service layer and the storage access are not. This is not a
+suite held back from running: this repository excludes no tests, so what CI runs is the whole suite and 18.1% is
+the real number. (The one repository in this portfolio that does exclude an `integration`-tagged test is
+game-center-api, and it says so in its own CI comment - which is where the first version of this paragraph copied
+the idea from, without checking. Corrected.)
+
+The JaCoCo plugin is committed so the number can be reproduced rather than taken on trust.
