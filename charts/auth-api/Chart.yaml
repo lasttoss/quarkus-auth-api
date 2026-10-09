@@ -1,0 +1,6 @@
+apiVersion: v2
+name: auth-api
+description: The authentication service on Kubernetes - a stateless JWT issuer whose signing keys arrive from a Secret, deployed so a rolling update never refuses a login
+type: application
+version: 0.1.0
+appVersion: "1.0"

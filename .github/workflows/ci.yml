@@ -67,3 +67,22 @@ jobs:
             -Dquarkus.container-image.password=${{ secrets.GITHUB_TOKEN }} \
             -Dquarkus.container-image.tag=${{ steps.version.outputs.value }} \
             -Dquarkus.container-image.additional-tags=latest
+
+  chart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+      - name: Lint the chart strictly
+        run: make chart
+      - name: The rendered manifest must keep its claims
+        run: |
+          helm template dev charts/auth-api > /tmp/render.yaml
+          for claim in "maxUnavailable: 0" "minAvailable: 1" "automountServiceAccountToken: false" "readOnlyRootFilesystem: true" \\
+              "tcpSocket" "kind: HorizontalPodAutoscaler" "kind: PodDisruptionBudget" "kind: NetworkPolicy"; do
+            grep -q "\$claim" /tmp/render.yaml || { echo "the chart no longer has: \$claim"; exit 1; }
+          done
+          echo "every claim is in the manifest"

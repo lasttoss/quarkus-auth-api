@@ -1,0 +1,32 @@
+replicaCount: 2
+image:
+  repository: ghcr.io/lasttoss/quarkus-auth-api
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  httpPort: 8081
+resources:
+  requests: {cpu: 200m, memory: 256Mi}
+  limits: {cpu: 1000m, memory: 512Mi}
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+networkPolicy:
+  enabled: true
+  datastorePorts:
+    - 5432   # PostgreSQL: accounts
+    - 6379   # Redis: sessions and caches, which is what makes logout real
+probes:
+  # No health extension was found, so the probe is a TCP connect rather than a path this chart would be inventing
+  path: ""
+env: []
+secret:
+  # Database credentials AND the RSA key pair. The private key signs tokens and never belongs in values,
+  # which is why this chart takes the name of a Secret instead of a key.
+  existingSecret: ""

@@ -1,0 +1,9 @@
+{{ .Chart.Name }} {{ .Chart.Version }} is installed as {{ .Release.Name }}.
+
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  helm test {{ .Release.Name }}
+
+Accounts live in PostgreSQL and sessions in Redis, both reached by name in this namespace, and the policy allows
+those ports and DNS - nothing else. The signing key pair is not a value: set secret.existingSecret to the Secret
+that carries the credentials and JWT_PRIVATE_KEY / JWT_PUBLIC_KEY. The chart mounts no service-account token and
+keeps the root filesystem read-only, with an emptyDir for /tmp.

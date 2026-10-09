@@ -129,3 +129,19 @@ what lets another service accept these tokens without being able to mint them.
 
 `docs/diagrams/token-lifecycle.mmd` is the Mermaid source; `make diagram` exports a PNG if a browser is
 present.
+
+## The chart
+
+`charts/auth-api/` deploys the service with the two things an auth service needs from a deploy: a rolling update
+that never takes a replica out of the Service before its successor can answer (`maxUnavailable: 0`), so a login
+arriving mid-roll is still answered, and a PodDisruptionBudget that keeps one serving through a disruption. It
+also carries an HPA, no service-account token, a read-only root filesystem with an `emptyDir` for the `/tmp` a
+JVM writes to, and a NetworkPolicy allowing the one port in and only DNS plus PostgreSQL and Redis out.
+
+The signing key pair is not a value. The chart takes `secret.existingSecret`, the name of a Secret that already
+holds the credentials and `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` - a chart that accepts a private key as a value is
+a chart that gets one committed.
+
+```bash
+make chart     # helm lint --strict + helm template
+```
