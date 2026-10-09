@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Issue, verify, renew, revoke — and the key that never leaves</title>
+<style>
+  :root { --ink:#151412; --paper:#f7f4ee; --rule:#cfc7b8; --red:#b3261e; --green:#1a6b3c; --amber:#8a5a00; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+         font:16px/1.5 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; }
+  .sheet { max-width:1080px; margin:0 auto; padding:56px 40px 72px; }
+  .kicker { font:600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing:.14em;
+            text-transform:uppercase; color:var(--amber); }
+  h1 { font-size:38px; line-height:1.15; margin:.35em 0 .2em; letter-spacing:-.01em; }
+  .dek { font-size:19px; color:#463f36; max-width:76ch; margin:0 0 8px; }
+  .meta { font:12px/1.6 ui-monospace, Menlo, monospace; color:#6b6357; border-top:1px solid var(--rule);
+          padding-top:10px; margin-top:22px; }
+  svg { display:block; width:100%; height:auto; margin:34px 0 0; }
+  .pairs { display:grid; grid-template-columns:1fr 1fr 1fr; gap:22px; margin-top:34px; }
+  .card { border-left:4px solid var(--ink); padding:14px 0 14px 18px; background:#fffdf8; }
+  .card b { display:block; font-size:12px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:6px; }
+  .card p { margin:0; font-size:16px; } .card p + p { margin-top:7px; }
+  footer { margin-top:38px; font:12px/1.7 ui-monospace, Menlo, monospace; color:#6b6357;
+           border-top:1px solid var(--rule); padding-top:12px; }
+  text { font-family:"Iowan Old Style", Palatino, Georgia, serif; }
+  .mono { font-family:ui-monospace, Menlo, monospace; }
+</style>
+<div class="sheet">
+  <div class="kicker">Auth · quarkus-auth-api</div>
+  <h1>Issue, verify, renew, revoke — and the key that never leaves</h1>
+  <p class="dek">Four endpoints, an RSA-signed JWT, and two rules that are easy to state and easy to get
+    wrong: a token is only worth anything once its signature is checked, and a logout is only real if
+    something other than the token remembers the session.</p>
+  <div class="meta">/auth/register · /auth/login · /auth/renew · /auth/logout · accounts in PostgreSQL ·
+    sessions and caches in Redis · smallrye-jwt verifies with the RSA public key</div>
+
+  <svg viewBox="0 0 1040 566" role="img" aria-label="Credentials are checked against a stored hash, an RSA-signed access token and a refresh token are issued, protected calls are verified with the public key and a role check, renew exchanges the refresh token, and logout removes the session in Redis">
+    <defs>
+      <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#151412"/></marker>
+      <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#1a6b3c"/></marker>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#b3261e"/></marker>
+      <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#8a5a00"/></marker>
+    </defs>
+
+    <text x="20" y="26" font-size="12" letter-spacing="1.5" fill="#6b6357" class="mono">ISSUE — LOGIN, NOT A TOKEN YET</text>
+    <rect x="20" y="40" width="190" height="96" rx="4" fill="#fffdf8" stroke="#151412"/>
+    <text x="34" y="64" font-size="13" font-weight="600">register / login</text>
+    <text x="34" y="86" font-size="11" class="mono">credentials in</text>
+    <text x="34" y="104" font-size="11" class="mono">at /auth/*</text>
+    <text x="34" y="126" font-size="11" fill="#6b6357">PostgreSQL holds accounts</text>
+
+    <rect x="240" y="40" width="200" height="96" rx="4" fill="#eef5ef" stroke="#1a6b3c" stroke-width="2"/>
+    <text x="254" y="64" font-size="13" font-weight="600" fill="#1a6b3c">credentials checked</text>
+    <text x="254" y="86" font-size="11" class="mono">against the stored</text>
+    <text x="254" y="104" font-size="11" class="mono">hash, never the</text>
+    <text x="254" y="122" font-size="11" class="mono">password itself</text>
+
+    <rect x="470" y="40" width="230" height="96" rx="4" fill="#fffdf8" stroke="#151412" stroke-width="2"/>
+    <text x="484" y="64" font-size="13" font-weight="600">issue two tokens</text>
+    <text x="484" y="86" font-size="11" class="mono">access: short window,</text>
+    <text x="484" y="104" font-size="11" class="mono">sent on every call</text>
+    <text x="484" y="122" font-size="11" class="mono">refresh: for /auth/renew</text>
+
+    <rect x="730" y="40" width="290" height="96" rx="4" fill="#fffdf8" stroke="#8a5a00" stroke-width="2"/>
+    <text x="744" y="64" font-size="13" font-weight="600" fill="#8a5a00">signed with the private key</text>
+    <text x="744" y="86" font-size="11" class="mono">RSA, so the token can be checked</text>
+    <text x="744" y="104" font-size="11" class="mono">by anyone holding only the public</text>
+    <text x="744" y="122" font-size="11" class="mono">key — and issued by exactly one</text>
+
+    <path d="M210 88 L240 88" stroke="#1a6b3c" stroke-width="2" marker-end="url(#ag)"/>
+    <path d="M440 88 L470 88" stroke="#151412" stroke-width="2" marker-end="url(#a)"/>
+    <path d="M700 88 L730 88" stroke="#8a5a00" stroke-width="2" marker-end="url(#ao)"/>
+    <path d="M585 136 L585 152 L400 152" stroke="#8a5a00" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ao)"/>
+    <text x="412" y="148" font-size="11" class="mono" fill="#8a5a00">the private key stays in the environment</text>
+
+    <text x="20" y="186" font-size="12" letter-spacing="1.5" fill="#6b6357" class="mono">VERIFY — THE STEP THAT MAKES THE TOKEN WORTH ANYTHING</text>
+    <rect x="20" y="200" width="200" height="96" rx="4" fill="#fffdf8" stroke="#151412"/>
+    <text x="34" y="224" font-size="13" font-weight="600">any protected call</text>
+    <text x="34" y="246" font-size="11" class="mono">Authorization:</text>
+    <text x="34" y="264" font-size="11" class="mono">Bearer &lt;access&gt;</text>
+    <text x="34" y="286" font-size="11" fill="#6b6357">no session lookup</text>
+
+    <rect x="250" y="200" width="230" height="96" rx="4" fill="#eef5ef" stroke="#1a6b3c" stroke-width="2"/>
+    <text x="264" y="224" font-size="13" font-weight="600" fill="#1a6b3c">smallrye-jwt</text>
+    <text x="264" y="246" font-size="11" class="mono">parse, then check the</text>
+    <text x="264" y="264" font-size="11" class="mono">signature with the</text>
+    <text x="264" y="282" font-size="11" class="mono">RSA public key</text>
+
+    <rect x="510" y="200" width="220" height="96" rx="4" fill="#eef5ef" stroke="#1a6b3c" stroke-width="2"/>
+    <text x="524" y="224" font-size="13" font-weight="600" fill="#1a6b3c">@RolesAllowed</text>
+    <text x="524" y="246" font-size="11" class="mono">signed by the server is</text>
+    <text x="524" y="264" font-size="11" class="mono">not the same as allowed:</text>
+    <text x="524" y="282" font-size="11" class="mono">the role is checked too</text>
+
+    <rect x="760" y="200" width="260" height="96" rx="4" fill="#fffdf8" stroke="#151412"/>
+    <text x="774" y="224" font-size="13" font-weight="600">the endpoint runs</text>
+    <text x="774" y="246" font-size="11" class="mono">and the check it did not</text>
+    <text x="774" y="264" font-size="11" class="mono">do is the hole: decoding</text>
+    <text x="774" y="282" font-size="11" class="mono">a payload is not verifying it</text>
+
+    <path d="M220 248 L250 248" stroke="#1a6b3c" stroke-width="2" marker-end="url(#ag)"/>
+    <path d="M480 248 L510 248" stroke="#1a6b3c" stroke-width="2" marker-end="url(#ag)"/>
+    <path d="M730 248 L760 248" stroke="#151412" stroke-width="2" marker-end="url(#a)"/>
+
+    <text x="20" y="334" font-size="12" letter-spacing="1.5" fill="#6b6357" class="mono">RENEW AND REVOKE — THE TWO THINGS A STATELESS TOKEN CANNOT DO ALONE</text>
+    <rect x="20" y="348" width="490" height="100" rx="4" fill="#fffdf8" stroke="#151412"/>
+    <text x="36" y="372" font-size="13" font-weight="600">/auth/renew</text>
+    <text x="36" y="394" font-size="12">The refresh token buys a new access token, so a client that</text>
+    <text x="36" y="414" font-size="12">is still signed in does not have to hold the password. It is</text>
+    <text x="36" y="434" font-size="12">also the one place a renew can be refused.</text>
+
+    <rect x="530" y="348" width="490" height="100" rx="4" fill="#fdeeed" stroke="#b3261e"/>
+    <text x="546" y="372" font-size="13" font-weight="600" fill="#b3261e">/auth/logout</text>
+    <text x="546" y="394" font-size="12">A signed token cannot be un-signed, so logout removes the</text>
+    <text x="546" y="414" font-size="12">session in Redis and lets the short window expire. That window</text>
+    <text x="546" y="434" font-size="12">is the reason it is short: it is the cost of revocation.</text>
+
+    <rect x="20" y="466" width="1000" height="82" rx="4" fill="#fffdf8" stroke="#8a5a00"/>
+    <text x="36" y="490" font-size="12" class="mono" fill="#8a5a00">THE KEY PAIR — SIGNED BY ONE, CHECKED BY ANY</text>
+    <text x="36" y="512" font-size="12">The private key signs and is supplied by the environment; it is not in the repository and dev copies are</text>
+    <text x="36" y="532" font-size="12">generated by a script. The public key checks, which is what lets another service accept these tokens</text>
+    <text x="36" y="532" font-size="12"> </text>
+  </svg>
+
+  <div class="pairs">
+    <div class="card">
+      <b>Why asymmetric keys here</b>
+      <p>Every service that has to accept a token needs the key that checks it, and only one needs the key
+        that signs. With a shared secret, every verifier becomes a forger.</p>
+    </div>
+    <div class="card">
+      <b>Why the access token is short</b>
+      <p>Statelessness means no lookup per call, and it also means an issued token cannot be recalled. The
+        short window is not a preference — it is the only bound on how long a revocation takes to bite.</p>
+    </div>
+    <div class="card">
+      <b>What Redis is doing here</b>
+      <p>Sessions and caches, which is what makes renew and logout possible at all. The token carries the
+        claims; the session record is what says whether this one is still allowed.</p>
+    </div>
+  </div>
+
+  <footer>
+    Sources: docs/diagrams/token-lifecycle.mmd for the Mermaid version; the README's "What this
+    demonstrates", endpoint table and configuration section for the four routes, the RSA verification and
+    the environment-supplied key pair. `make diagram` exports a PNG if a browser is present.
+  </footer>
+</div>

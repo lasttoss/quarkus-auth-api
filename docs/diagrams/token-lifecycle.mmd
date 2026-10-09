@@ -1,0 +1,15 @@
+%% Source for docs/diagrams/token-lifecycle.html
+%% Issue, verify, renew, revoke - and the key that never leaves the server.
+flowchart LR
+  R["register / login"] --> CR{"credentials<br/>checked against<br/>the stored hash"}
+  CR -->|"ok"| ISS["issue tokens<br/>RSA-signed JWT"]
+  ISS --> AT["access token<br/>short window"]
+  ISS --> RT["refresh token"]
+  AT --> V["any protected call"]
+  V --> SV{"smallrye-jwt<br/>parse + verify<br/>with the public key"}
+  SV -->|"signature ok"| RO{"@RolesAllowed<br/>the role check"}
+  RO -->|"allowed"| EP["endpoint runs"]
+  RT -->|"renew"| ISS
+  L["logout"] --> SS["session removed<br/>in Redis"]
+  classDef gate fill:#eef5ef,stroke:#1a6b3c,stroke-width:2px;
+  class CR,SV,RO gate;

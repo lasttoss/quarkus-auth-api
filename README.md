@@ -93,3 +93,39 @@ Building a container image through Jib is opt-in:
 ## License
 
 MIT - see [LICENSE](LICENSE). Quarkus is Apache-2.0 and is not redistributed here.
+
+## The token lifecycle as a picture
+
+```mermaid
+%% Source for docs/diagrams/token-lifecycle.html
+%% Issue, verify, renew, revoke - and the key that never leaves the server.
+flowchart LR
+  R["register / login"] --> CR{"credentials<br/>checked against<br/>the stored hash"}
+  CR -->|"ok"| ISS["issue tokens<br/>RSA-signed JWT"]
+  ISS --> AT["access token<br/>short window"]
+  ISS --> RT["refresh token"]
+  AT --> V["any protected call"]
+  V --> SV{"smallrye-jwt<br/>parse + verify<br/>with the public key"}
+  SV -->|"signature ok"| RO{"@RolesAllowed<br/>the role check"}
+  RO -->|"allowed"| EP["endpoint runs"]
+  RT -->|"renew"| ISS
+  L["logout"] --> SS["session removed<br/>in Redis"]
+  classDef gate fill:#eef5ef,stroke:#1a6b3c,stroke-width:2px;
+  class CR,SV,RO gate;
+```
+
+Four endpoints and one key pair. The half that is easy to get wrong is on the right: a token is only worth
+anything once its signature is checked against the RSA public key, and being signed by the server is not the
+same as being allowed — the role is checked too. Decoding a payload is not verifying it, and that gap is the
+whole difference.
+
+The other half is the two things a stateless token cannot do alone. `/auth/renew` exchanges a refresh token
+for a new access token, which is also the one place a renewal can be refused. `/auth/logout` removes the
+session in Redis, because a signed token cannot be un-signed — which is why the access token's window is
+short: that window is the cost of revocation.
+
+The private key signs and is supplied by the environment, never committed; the public key checks, which is
+what lets another service accept these tokens without being able to mint them.
+
+`docs/diagrams/token-lifecycle.mmd` is the Mermaid source; `make diagram` exports a PNG if a browser is
+present.
