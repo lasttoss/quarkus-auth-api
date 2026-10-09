@@ -145,3 +145,27 @@ a chart that gets one committed.
 ```bash
 make chart     # helm lint --strict + helm template
 ```
+
+## Coverage
+
+Measured with `./mvnw -B test` plus the JaCoCo plugin (line and branch):
+
+| | covered / total | |
+|---|---|---|
+| lines | 44 / 243 | **18.1%** |
+| branches | 3 / 26 | **11.5%** |
+
+By package, the number says where the suite looks:
+
+| package | lines |
+|---|---|
+| `models` | 100.0% |
+| `mappers` | 93.3% |
+| `constants` | 35.7% |
+| `services` | 0.0% (118 lines) |
+| `repositories` | 0.0% (14 lines) |
+
+Models and mappers are fully or nearly covered; the service layer and the storage access are not, and for the same
+reason as in the other service: the tests that need PostgreSQL and Redis are the ones tagged `integration`, and CI
+runs only the unit suite. The jacoco plugin is committed so the number can be reproduced rather than taken on
+trust.
