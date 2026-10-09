@@ -27,6 +27,8 @@ probes:
   path: ""
 env: []
 secret:
+  # Set true only to render or lint outside a cluster; a real install must name a Secret.
+  allowMissing: false
   # Database credentials AND the RSA key pair. The private key signs tokens and never belongs in values,
   # which is why this chart takes the name of a Secret instead of a key.
   existingSecret: ""
