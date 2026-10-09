@@ -83,6 +83,6 @@ jobs:
           helm template dev charts/auth-api > /tmp/render.yaml
           for claim in "maxUnavailable: 0" "minAvailable: 1" "automountServiceAccountToken: false" "readOnlyRootFilesystem: true" \\
               "tcpSocket" "kind: HorizontalPodAutoscaler" "kind: PodDisruptionBudget" "kind: NetworkPolicy"; do
-            grep -q "\$claim" /tmp/render.yaml || { echo "the chart no longer has: \$claim"; exit 1; }
+            grep -q "$claim" /tmp/render.yaml || { echo "the chart no longer has: $claim"; exit 1; }
           done
           echo "every claim is in the manifest"
