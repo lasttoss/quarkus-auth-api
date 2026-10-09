@@ -148,27 +148,36 @@ make chart     # helm lint --strict + helm template
 
 ## Coverage
 
-Measured with `./mvnw -B test` plus the JaCoCo plugin (line and branch):
+`./mvnw -B test` runs the unit tests; these are JaCoCo's numbers, line coverage:
 
-| | covered / total | |
-|---|---|---|
-| lines | 44 / 243 | **18.1%** |
-| branches | 3 / 26 | **11.5%** |
-
-By package, the number says where the suite looks:
-
-| package | lines |
+| class | lines |
 |---|---|
-| `models` | 100.0% |
-| `mappers` | 93.3% |
-| `constants` | 35.7% |
-| `services` | 0.0% (118 lines) |
-| `repositories` | 0.0% (14 lines) |
+| `AuthService` | 100.0% (90/90) |
+| `AuthResource` | 0.0% (0/16) |
+| `RedisService` | 6.7% (1/15) |
+| `UserMapperImpl` | 93.3% (14/15) |
+| `UserModel` | 100.0% (14/14) |
+| `UserService` | 0.0% (0/13) |
+| `ApiErrorConstants` | 90.9% (10/11) |
+| `EventLogger` | 90.9% (10/11) |
+| **total** | **71.2%** (173/243 lines, 50.0% of 26 branches) |
 
-Models and mappers are fully or nearly covered; the service layer and the storage access are not. This is not a
-suite held back from running: this repository excludes no tests, so what CI runs is the whole suite and 18.1% is
-the real number. (The one repository in this portfolio that does exclude an `integration`-tagged test is
-game-center-api, and it says so in its own CI comment - which is where the first version of this paragraph copied
-the idea from, without checking. Corrected.)
+`AuthService` is covered in full. It is the whole decision of whether a player gets a token, so the tests
+are about that decision rather than about lines: which status and which error code each way of failing
+produces (a taken username is EXIST_USER, an unknown one is USER_NOT_FOUND, and a renew that does not
+match the token on record is FAILED_TO_VERIFY_TOKEN), that a refused request never carries a token, and
+that an accepted one carries two different signed JWTs with the lifetimes the constants promise.
 
-The JaCoCo plugin is committed so the number can be reproduced rather than taken on trust.
+Nothing in the suite runs Quarkus, and nothing needs a database or a Redis: the service takes its
+collaborators as package-private fields, so the repository and redis are hand-written fakes and the JWT
+parser is a proxy, while the tokens are signed for real with a temporary key.
+
+Two gaps worth naming. `AuthResource` and `UserResource` are the REST layer, and what covers them is the
+end-to-end run against the stack rather than the unit suite. `RedisService` is a thin wrapper over
+Redisson and only its first line is exercised; testing it properly means a real Redis.
+
+One piece of behaviour is recorded rather than fixed:
+`renewCrashesRatherThanRefusingWhenTheKeyVanishesBetweenTheCheckAndTheRead` - the renew path asks redis
+whether the key exists and then reads it, so a key that expires in between answers with a
+NullPointerException instead of an error response. The window is small and choosing which error to
+return is a decision, so the test says what happens today.
