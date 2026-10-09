@@ -1,79 +1,95 @@
-# hh
+# quarkus-auth-api
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+**Authentication and account service in Quarkus (Java 17)**: register, login, renew and logout
+with RSA-signed JWT, accounts in PostgreSQL, sessions and caches in Redis, OpenAPI/Swagger UI,
+and a container image that can be built natively through Jib.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
-
-## Running the application in dev mode
-
-You can run your application in dev mode that enables live coding using:
-
-```shell script
-./mvnw compile quarkus:dev
+```
+POST /auth/register   POST /auth/login   POST /auth/renew   POST /auth/logout   GET /users/me
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+## What this demonstrates
 
-## Packaging and running the application
+- **JWT that is actually verified**: `smallrye-jwt` does the parsing and signature check with an
+  RSA public key, `@RolesAllowed`-style authorization is always enforced
+  (`smallrye.jwt.always-check-authorization=true`), and the signing key is a file that never
+  enters the repository - `scripts/gen-dev-keys.sh` creates a throwaway pair for development.
+- **Cache-aside with Redisson**: Redis is used through Redisson (connection pool, threads and
+  Netty threads configured explicitly) rather than a raw client, which is what you want once
+  several services share one Redis.
+- **Panache repositories as the data layer**: `UserRepository` / `ConfigRepository` over
+  Hibernate ORM with an explicit schema policy (`quarkus.hibernate-orm.database.generation`), so
+  the schema is a decision, not a side effect.
+- **A documented API by default**: SmallRye OpenAPI plus Swagger UI are served from the same
+  build, which is how a mobile team can integrate without a spec document.
+- **Container-first build**: Jib is wired up (`quarkus.container-image.*`), and it is off by
+  default so a plain `mvn package` does not surprise you with a Docker build.
 
-The application can be packaged using:
+## Endpoints
 
-```shell script
-./mvnw package
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/auth/register` | no | create an account |
+| POST | `/auth/login` | no | credentials in, JWT out |
+| POST | `/auth/renew` | refresh token | new access token |
+| POST | `/auth/logout` | bearer | invalidate the session |
+| GET  | `/users/me` | bearer | the caller's profile |
+| GET  | `/swagger`, `/swagger-ui.html` | no | the OpenAPI document and UI |
+
+## Quickstart
+
+```bash
+git clone https://github.com/lasttoss/quarkus-auth-api.git
+cd quarkus-auth-api
+make up            # dev keys + postgres + redis + the api
+# api      : http://localhost:8081/auth
+# swagger  : http://localhost:8081/swagger-ui.html
+make down
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+Locally without Docker for the app:
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
+```bash
+./scripts/gen-dev-keys.sh certs      # the JWT layer needs a key pair
+docker compose up -d postgres redis  # or have both services running
+./mvnw quarkus:dev
 ```
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
+## Configuration
 
-## Creating a native executable
+Everything has a development default and is overridable from the environment
+(`src/main/resources/application.properties`): `AUTH_PORT`, `DB_URL`, `DB_USERNAME`,
+`DB_PASSWORD`, `REDIS_URL`, `REDIS_PASSWORD`, `REDIS_DATABASE`, `JWT_PUBLIC_KEY`,
+`JWT_PRIVATE_KEY`. See `.env.example` and `docker-compose.yml`.
 
-You can create a native executable using:
+The `jdbc` URL defaults to PostgreSQL; a CockroachDB URL works as well since the datasource is
+declared as `postgresql`.
 
-```shell script
-./mvnw package -Dnative
-```
+Building a container image through Jib is opt-in:
+`./mvnw package -Dquarkus.container-image.build=true`.
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
+## Fixed while preparing this repository
 
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
+1. **The service could not start from a clean clone**: `application.properties` was committed as
+   `application.properties.bak`, so Quarkus fell back to defaults with no datasource. There is now
+   a real `application.properties` with placeholders for every environment value.
+2. **The JWT key pair the build depends on was missing** (and must not be committed), so the app
+   died on startup looking for `certs/publickey.pem`. `scripts/gen-dev-keys.sh` generates one for
+   development and `certs/` is git-ignored - real keys are mounted.
+3. **`application.properties` used to force a container image build on every `mvn package`**
+   (`quarkus.container-image.build=true`), which made a normal build slow and fail on machines
+   without a Docker daemon. It is now opt-in.
+4. **A database password and a Redis password were committed in that `.bak` file.** The file is
+   deleted and every credential now comes from the environment.
 
-You can then execute your native executable with: `./target/hh-1.0.0-SNAPSHOT-runner`
+## Notes / limitations
 
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
+- `./mvnw test` currently has no tests to run; the CI job builds the jar and generates the
+  development keys, which catches the failure modes above.
+- `register` / `login` behaviour has not been exercised end to end here - the compose stack is
+  the intended way to try it, and the smoke path is: register → login → call `/users/me` with the
+  bearer token.
 
-## Related Guides
+## License
 
-- REST resources for Hibernate ORM with Panache ([guide](https://quarkus.io/guides/rest-data-panache)): Generate Jakarta REST resources for your Hibernate Panache entities and repositories
-- Camel MapStruct ([guide](https://camel.apache.org/camel-quarkus/latest/reference/extensions/mapstruct.html)): Type Conversion using Mapstruct
-- SmallRye OpenAPI ([guide](https://quarkus.io/guides/openapi-swaggerui)): Document your REST APIs with OpenAPI - comes with Swagger UI
-- REST Jackson ([guide](https://quarkus.io/guides/rest#json-serialisation)): Jackson serialization support for Quarkus REST. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it
-- SmallRye JWT ([guide](https://quarkus.io/guides/security-jwt)): Secure your applications with JSON Web Token
-- Redis Cache ([guide](https://quarkus.io/guides/cache-redis-reference)): Use Redis as the caching backend
-- JDBC Driver - PostgreSQL ([guide](https://quarkus.io/guides/datasource)): Connect to the PostgreSQL database via JDBC
-
-## Provided Code
-
-### REST Data with Panache
-
-Generating Jakarta REST resources with Panache
-
-[Related guide section...](https://quarkus.io/guides/rest-data-panache)
-
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+MIT - see [LICENSE](LICENSE). Quarkus is Apache-2.0 and is not redistributed here.

@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Development JWT keys
+        run: ./scripts/gen-dev-keys.sh certs
+      - name: Build
+        run: ./mvnw -B -DskipTests package
+      - name: Tests
+        run: ./mvnw -B test
