@@ -44,7 +44,5 @@ nb-configuration.xml
 # TLS Certificates
 .certs/
 /src/main/resources/certs/
-/src/main/resources/application.properties
-/docker-compose.yml
 certs/
 target/

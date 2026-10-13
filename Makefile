@@ -10,11 +10,11 @@ help: ## Show this help
 keys: ## Generate the development RSA key pair the JWT layer needs
 	./scripts/gen-dev-keys.sh certs
 
-up: ## Start postgres + redis + the api (generates dev keys first)
+up: ## Start postgres + redis + the api (generates dev keys; Docker builds the image)
 	@$(MAKE) --no-print-directory keys
 	$(COMPOSE) up -d --build
-	@echo "api     : http://localhost:$${AUTH_PORT:-8081}/auth"
-	@echo "swagger : http://localhost:$${AUTH_PORT:-8081}/swagger-ui.html"
+	@echo "api     : http://localhost:$${AUTH_PORT:-18120}/auth"
+	@echo "swagger : http://localhost:$${AUTH_PORT:-18120}/swagger-ui.html"
 
 down: ## Stop the stack
 	$(COMPOSE) down
