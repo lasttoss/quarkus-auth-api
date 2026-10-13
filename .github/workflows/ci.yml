@@ -84,8 +84,8 @@ jobs:
         run: make guard
       - name: The rendered manifest must keep its claims
         run: |
-          helm template dev charts/auth-api > /tmp/render.yaml
-          for claim in "maxUnavailable: 0" "minAvailable: 1" "automountServiceAccountToken: false" "readOnlyRootFilesystem: true" \\
+          helm template dev charts/auth-api --set secret.allowMissing=true > /tmp/render.yaml
+          for claim in "maxUnavailable: 0" "minAvailable: 1" "automountServiceAccountToken: false" "readOnlyRootFilesystem: true" \
               "tcpSocket" "kind: HorizontalPodAutoscaler" "kind: PodDisruptionBudget" "kind: NetworkPolicy"; do
             grep -q "$claim" /tmp/render.yaml || { echo "the chart no longer has: $claim"; exit 1; }
           done
