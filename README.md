@@ -84,8 +84,7 @@ Building a container image through Jib is opt-in:
 
 ## Notes / limitations
 
-- `./mvnw test` currently has no tests to run; the CI job builds the jar and generates the
-  development keys, which catches the failure modes above.
+- 27 unit tests, 71.2% of lines (the table below); the CI job runs them and builds the jar.
 - `register` / `login` behaviour has not been exercised end to end here - the compose stack is
   the intended way to try it, and the smoke path is: register → login → call `/users/me` with the
   bearer token.
